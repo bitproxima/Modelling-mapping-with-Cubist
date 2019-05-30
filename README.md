@@ -27,4 +27,8 @@ To assist with the task, a workflow has been defined, necessary detail provided 
 **License:** Free to use with acknowledgement.
 
 ### Further detail
+1.  Extracts lab data from SALI with sample id, sample depths and site location (Datum 3). Calulate cation ratios (observing minimum thereholds for individual calulations). For sites with results from more than one method, query selects most appropriate method as per cation SSA guidelines (2014) and other methods. Save results as \\...\Modelling\SiteData\Harmonised_data\labdata.csv
+
+1.  There are two separate sql queries in this script, one for A horizon and one for B horizon. The queries create a list of fictious sample depths at the change between A and B horizons in duplex soils to influenece the ASRIS Spline v2.0 tool. Duplex soils are identified by their assigned soil classification in either ASC, PPF or GSG (see below for included classifications). Sites without a soil classification are not considered. Buried horizons are not considered. Save results from each query in \\...\Modelling\SiteData\Harmonised_data\Anew_depths.csv or as Bnew_depths.csv
+
 1.  
