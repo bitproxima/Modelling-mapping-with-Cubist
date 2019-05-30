@@ -29,6 +29,25 @@ To assist with the task, a workflow has been defined, necessary detail provided 
 ### Further detail
 1.  Extracts lab data from SALI with sample id, sample depths and site location (Datum 3). Calulate cation ratios (observing minimum thereholds for individual calulations). For sites with results from more than one method, query selects most appropriate method as per cation SSA guidelines (2014) and other methods. Save results as \\...\Modelling\SiteData\Harmonised_data\labdata.csv
 
-1.  There are two separate sql queries in this script, one for A horizon and one for B horizon. The queries create a list of fictious sample depths at the change between A and B horizons in duplex soils to influenece the ASRIS Spline v2.0 tool. Duplex soils are identified by their assigned soil classification in either ASC, PPF or GSG (see below for included classifications). Sites without a soil classification are not considered. Buried horizons are not considered. Save results from each query in \\...\Modelling\SiteData\Harmonised_data\Anew_depths.csv or as Bnew_depths.csv
-
 1.  
+  - Step 2a - This SQL script is separated into two sql queries, one for A horizon and one for B horizon. The queries create a list of fictious sample depths at the change between A and B horizons in duplex soils to influenece the ASRIS Spline v2.0 tool. Duplex soils are identified by their assigned soil classification in either ASC, PPF or GSG (see below for included classifications). Sites without a soil classification are not considered. Buried horizons are not considered. Save results from each query in \\...\Modelling\SiteData\Harmonised_data\Anew_depths.csv or as Bnew_depths.csv
+
+  - Step 2b - this R script merges the fictous depths created in Step 2a with the real lab data extracted in Step 1. Attributes each fictous depth with a value for the particular soil attribute taken from the nearest real sample within the same design master horizon. Excludes sites with just one sample and removes samples that are duplicated or overlap.
+  
+1.  Spline Tool
+
+1.  This R script, pivots Spline Tool output, adds spatial references lost when the data was put through the spline and changes no data value from -9999 to NA.
+
+1.  This R script fits a CUBIST model, perform k-fold cross validation, and calculate the upper/lower prediction limits (using leave one-out cross validation) to the specified CI interval (normally set at 90%). The outputs are written to file which include cross validation results as well as each cubist partition rule and linear sub-models. Directories to where outputs are written are created automatically within the script. The module and overall script can handle multiple training files, i.e. more than one .csv file can be placed in the training directory (This is considered batch processing). Subsequently, each new input training file will have their corresponding output files placed in separate directories (refer to folder structure diagram the instructions document). In addition, each training file may include additional target variables such as, for example, multiple pH depths:
+	            X       	Y       ID    x0to5cm      x5to15cm     x15to30cm
+              540512  5377883   1     44.38902517  50.79748922  NA
+              540712  5376883   2     18.38972517  27.39758926  74.51045857
+              531512  5375983   3     8.389025179  29.19448962  NA
+              535112  5371183   4     51.98907517  65.294489234 84.91145859 
+As such, each target variable outputs files are also place in separate subfolder directories under the corresponding training folder directory.
+
+1.  This R script maps out the cubist rules -tile by tile- at each k-fold iteration as defined from module 1. The upper/lower predictions will also be mapped. The final surfaces (including the upper/lower prediction rasters) are derived from  averaging or taking the median of all K-fold surfaces. The module will then mosaic all the final predictions and upper/lower prediction raster tiles to derive the final product.
+
+1.  This R script Part 1 - combines the median stats from individual tables, Part 2 - averages the variable (covariate) importances, Part 3 - creates a raster for each predicted attribute that represents the difference between the values for the 95th percentile and 5th percentile (range), Part 4 - creates rasters for the average range for each attribute aswell the overall range. Script was initally designed to expect multiple soil attributes and six soil depths. It has since been updated to handle case where there is only one soil attribute run aswell as cases where there is less than six soil depths. Part 1 & 2 can be run after Step 5. Part 3 can be run after Step 6.
+
+1.Python script
