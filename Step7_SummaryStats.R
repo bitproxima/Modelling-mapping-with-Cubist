@@ -1,10 +1,7 @@
-# SummaryStats - Version 3.1 - 16/05/2017
-#  Implemented a 'user adjustable project directory'
-#  Part 1 - Fixed ModelData.csv bug
-#  Part 1 - If your covariates are not GTiff .tif then lines 35 and 36 need to be remarked out and lines 37 and 38 need to be made active
-# 
-# 
-# Previous updates - Version 3 - 23/02/2017 - Added model run number to filename ModelRun.csv
+### SummaryStats - Calculates overall statistics for Cubist outputs
+#
+#     Version 3.1 - 16/05/2017 - Implemented a 'user adjustable project directory' & Fixed ModelData.csv bug
+#     Version 3 - 23/02/2017 - Added model run number to filename ModelRun.csv
 #
 ### Script description 
 ####### Part 1 - combines the median stats from individual tables,
@@ -18,13 +15,18 @@
 ### Part 1 & 2 can be run after Module 1
 ### Part 3 can be run after Module 2
 ###
-###USER INPUT - Adjust model run number and project directory below (Lines 25 & 26)
-###
-### SCRIPT STARTS HERE
 
-ModelRun = "K3"
-ProjectDir = "//lands//data//DSITI//LandSciences//NAS//slr_soils//Projects//Fitzroy_ErodSoil//Modelling//AttributeRasters//"
+### USER INPUT 
+## If your covariates are not GTiff .tif then lines 37 and 38 need to be remarked out and lines 39 and 40 need to be made active
 
+## Adjust model run number and project directory below (Lines 25 & 26)
+ModelRun = "P4"
+
+##ProjectDir = "C://Temp//"
+ProjectDir = "//lands//data//DSITI//LandSciences//NAS//slr_soils//Projects//PMap//Modelling//Stage1//"
+
+
+## Script processing starts here
 library(plyr)
 library(matrixStats) #for std deviation function rowSds()
 
