@@ -43,3 +43,7 @@ To assist with the task, a workflow has been defined, necessary detail provided 
 1.  This R script Part 1 - combines the median stats from individual tables, Part 2 - averages the variable (covariate) importances, Part 3 - creates a raster for each predicted attribute that represents the difference between the values for the 95th percentile and 5th percentile (range), Part 4 - creates rasters for the average range for each attribute aswell the overall range. Script was initally designed to expect multiple soil attributes and six soil depths. It has since been updated to handle case where there is only one soil attribute run aswell as cases where there is less than six soil depths. Part 1 & 2 can be run after Step 5. Part 3 can be run after Step 6.
 
 1.  Python script
+
+### Potential RStudio/R Error messages, what they mean and solutions/fixes
+**Error in compareRaster (x) : different extent** - Covariate rasters do not all have the same extent (number of cells) and/or are not exactly aligned. Rasters can be aligned using GDALWarp
+
