@@ -45,5 +45,7 @@ To assist with the task, a workflow has been defined, necessary detail provided 
 1.  Python script
 
 ### Potential RStudio/R Error messages, what they mean and solutions/fixes
+**Error in cubcoef[1, 1] : incorrect number of dimensions** - This error happens when Cubist has not been able to fit a model due to small number of training data
+
 **Error in compareRaster (x) : different extent** - Covariate rasters do not all have the same extent (number of cells) and/or are not exactly aligned. Rasters can be aligned using GDALWarp
 
