@@ -1,6 +1,7 @@
 /*
- Step 2. 
- This Version 1.4 - 4/10/2018 - Further bug caused by the moving of the 'Horison table' in SALI data structure has been fixed
+ Step 1. 
+ Version 1.5 - 22/2/2021 - Script changed to deal with missing Horizon No. in Lab Results Table caused by the introduction of the Site'd App - Author Kaitlyn Andrews (Note: You still need to have Horizon No. populated in Samples Table)  
+ Version 1.4 - 4/10/2018 - Further bug caused by the moving of the 'Horison table' in SALI data structure has been fixed
  Version 1.3 - 13/9/2018 - The follow new soil attributes have been added - TN, TP, Col_P, WB_OC, CN, ApproxCN, SAR, pHw, pHcl & BS; Rounding results now done automatically when attribute is calulated; Samples table joined to obersvation table, previously joined to horizons table
  Version 1.2 - 20/3/2018 - Fixed up bug  - disturbance table was not joined to obs table and join type has been changed to left outer join
  Version 1.1 - 13/3/2017 - Added ability to exclude sites based on yellow book Site Disturbance
@@ -27,7 +28,6 @@ User inputs required on lines
   Line 277 enter soil attribute
   Line 280-323 select appropriate conditions depending on attribute
 */
-
 (select distinct
   (p.objectid||m.site_ID) ID, --Single site ID for spline input
   (sn.upper_depth*100)UD, -- Upper depth in cm for spline tool
@@ -66,8 +66,18 @@ from
     m method_used
     
   from
-    sit_lab_results
-      
+    (select project_code, 
+    site_id, 
+    obs_no, 
+    sample_no, 
+    sit_samples.horizon_no, 
+    lab_code, 
+    lab_meth_code,
+    numeric_value, 
+    qc_code 
+    from sit_lab_results
+    left join sit_samples using (project_code, site_id, obs_no, sample_no)) sit_lab_results2
+    
   where
     (lab_meth_code like '15%' or lab_meth_code like '18F%' or lab_meth_code like '2Z2_%' or lab_meth_code like '2Z1_%' or lab_meth_code like '2Z1%' or lab_meth_code like '7%' or lab_meth_code like '9%' or lab_meth_code like '6B%'or lab_meth_code in ('3A1','4A1','4B1','5A2', '6A1'))
     and numeric_value != 0 and qc_code != 'Q' and qc_code != 'P'
@@ -241,7 +251,9 @@ from
     v['COL_P'] = coalesce(v['9B1'],v['9B2']),
     m['COL_P'] = coalesce(m['9B1'],m['9B2']),
     v['TP'] = coalesce(v['9A3a'],v['9A1']),
-    m['TP'] = coalesce(v['9A3a'],v['9A1'])
+    m['TP'] = coalesce(v['9A3a'],v['9A1']),
+    v['Chloride'] = v['5A2'],
+    m['Chloride'] = v['5A2']
     )
   order by 
     project_code, site_id, obs_no, horizon_no, sample_no, lab_meth_code
@@ -265,9 +277,8 @@ where
   and sn.PROJECT_CODE = m.PROJECT_CODE -- samples to lab results table join
   and sn.SITE_ID = m.SITE_ID -- samples to lab results table join
   and sn.OBS_NO = m.OBS_NO -- samples to lab results table join
-  and sn.horizon_no = m.horizon_no -- samples to lab results table join
   and sn.SAMPLE_NO = m.SAMPLE_NO -- samples to lab results table join
-  and c.latitude between -26.476401 and -21.205394 and c.LONGITUDE between 146.557398 and 151.586142 --Fitzroy modelling area
+  --and c.latitude between -26.98541 and -23.85625 and c.LONGITUDE between 150.28375 and 153.44791 --BMSE modelling area
   and h.project_code NOT LIKE 'CQC' -- data from Project CQC excluded
   and not (h.project_code LIKE 'EIM' and h.Site_ID = 6051) -- data from EIM 6051 excluded
   and not (h.project_code LIKE 'QCS' and h.Site_ID IN (20, 21, 85, 86)) -- data from QCS 20, 21, 85 and 86 excluded
@@ -276,14 +287,14 @@ where
   and (m.THE_VALUE IS NOT NULL and m.THE_VALUE > 0) --result must be a value and not negative which affects ESP in sample with a EC > 0.3 (ie PZ do not turn off) 
   and h.DESIGN_MASTER IS NOT NULL --only interested in results from described soil profiles
   
-  --set attribute here (you can select one of the following - Cat_Ca, Cat_Mg, Cat_K, Cat_Na, Cat_Acid, Cat_CEC, ESP, Ca_Mg, SAR, Clay, Silt, FS, CS, Clay_Act, BS, pHw, pHcl, Salinity, WB_OC, CN, ApproxCN, Col_P, TP, TN 
-  and m.lab_meth_code like 'Cat_Ca'
+  --set attribute here (you can select one of the following - Cat_Ca, Cat_Mg, Cat_K, Cat_Na, Cat_Acid, Cat_CEC, ESP, Ca_Mg, SAR, Clay, Silt, FS, CS, Clay_Act, BS, pHw, pHcl, Salinity, Chloride, WB_OC, CN, ApproxCN, Col_P, TP, TN 
+  and m.lab_meth_code like 'Clay'
   
   --select appropriate conditions depending on attribute
   --Clay/CS/FS
-  --and (m.THE_VALUE <= 100) --USE FOR CLAY and CS and FS to elliminate percentage results > 100%
-  --and not (h.project_code LIKE 'BAN' and h.Site_ID = 95) -- USE FOR CLAY and CS and FS. Site BAN 95 excluded because lab data does not correlate with field description according to LF.
-  --and not (h.project_code LIKE 'BAMAR' and h.site_ID = 952 and sn.sample_no = 5) -- USE FOR CLAY. Site BAMAR 952 sample 5 excluded as gypsum present in soil solution has flocculated clay =1%
+  and (m.THE_VALUE <= 100) --USE FOR CLAY and CS and FS to elliminate percentage results > 100%
+  and not (h.project_code LIKE 'BAN' and h.Site_ID = 95) -- USE FOR CLAY and CS and FS. Site BAN 95 excluded because lab data does not correlate with field description according to LF.
+  and not (h.project_code LIKE 'BAMAR' and h.site_ID = 952 and sn.sample_no = 5) -- USE FOR CLAY. Site BAMAR 952 sample 5 excluded as gypsum present in soil solution has flocculated clay =1%
   
   --ESP
   --and (m.THE_VALUE <= 100) --USE FOR ESP to elliminate ESP percentage results > 100%
@@ -307,12 +318,12 @@ where
   --and not (h.project_code LIKE 'CCL' and h.site_id = 317 and sn.sample_no = 2) -- USE FOR SILT. Sample CCL 317 sample 2 excluded because of funny value.
  
  --Exch Ca
-  and not (h.project_code LIKE 'BAMAR' and h.site_ID = 952 and sn.sample_no = 5) -- USE FOR EXCH CA. Site BAMAR 952 sample number 5. As wrong method/ presence of gypsum affected results 
-  and not (h.project_code LIKE 'EIR' and h.site_ID = 9021 and sn.sample_no = 36) -- USE FOR EXCH CA. Site EIR 9021 sample number 36. As wrong method/ presence of gypsum affected results 
-  and not (h.project_code LIKE 'SALTC' and h.site_ID = 400 and sn.sample_no = 3)  -- USE FOR EXCH CA. Site SALTC 400 sample number 3. As wrong method/ presence of gypsum affected results
-  and not (h.project_code LIKE 'SALTC' and h.site_ID = 400 and sn.sample_no = 4)  -- USE FOR EXCH CA. Site SALTC 400 sample number 4. As wrong method/ presence of gypsum affected results
-  and not (h.project_code LIKE 'BDSM' and h.site_ID = 345 and sn.sample_no = 1)   -- USE FOR EXCH CA and MG. Site BDSM 345 samples number 1. As Exch Ca = 0 Exch Mg= 0.1.
-  and not (h.project_code LIKE '3MC' and h.site_ID = 9014)   -- USE FOR EXCH CA. 3MC 9014 samples number 2, 4, 7, 10, and 13 Exch Ca (15A1_Ca) much larger than ECEC (15J1). Site on tertiary plateau??? Acidic soils no carbonates. Not sure where Ca is coming from?. Results for 15J1, 15A1_K, 15A1_Mg, 15A1_Na look plausible. Might have been a decimal error with lab.
+  --and not (h.project_code LIKE 'BAMAR' and h.site_ID = 952 and sn.sample_no = 5) -- USE FOR EXCH CA. Site BAMAR 952 sample number 5. As wrong method/ presence of gypsum affected results 
+  --and not (h.project_code LIKE 'EIR' and h.site_ID = 9021 and sn.sample_no = 36) -- USE FOR EXCH CA. Site EIR 9021 sample number 36. As wrong method/ presence of gypsum affected results 
+  --and not (h.project_code LIKE 'SALTC' and h.site_ID = 400 and sn.sample_no = 3)  -- USE FOR EXCH CA. Site SALTC 400 sample number 3. As wrong method/ presence of gypsum affected results
+  --and not (h.project_code LIKE 'SALTC' and h.site_ID = 400 and sn.sample_no = 4)  -- USE FOR EXCH CA. Site SALTC 400 sample number 4. As wrong method/ presence of gypsum affected results
+  --and not (h.project_code LIKE 'BDSM' and h.site_ID = 345 and sn.sample_no = 1)   -- USE FOR EXCH CA and MG. Site BDSM 345 samples number 1. As Exch Ca = 0 Exch Mg= 0.1.
+  --and not (h.project_code LIKE '3MC' and h.site_ID = 9014)   -- USE FOR EXCH CA. 3MC 9014 samples number 2, 4, 7, 10, and 13 Exch Ca (15A1_Ca) much larger than ECEC (15J1). Site on tertiary plateau??? Acidic soils no carbonates. Not sure where Ca is coming from?. Results for 15J1, 15A1_K, 15A1_Mg, 15A1_Na look plausible. Might have been a decimal error with lab.
 
 --Exch Mg
   --and not (h.project_code LIKE 'BDSM' and h.site_ID = 345 and sn.sample_no = 1)   -- USE FOR EXCH CA and MG. Site BDSM 345 samples number 1. As Exch Ca = 0 Exch Mg= 0.1
@@ -325,7 +336,7 @@ where
   --and not (h.project_code LIKE 'WDH' and h.Site_ID = 9098 and sn.sample_no = 13) -- USE FOR EXCH NA. Site WDH 9098 Sample 13 excluded because cation data incorrect.
   
  --Testing
- --and o.project_code = '3MC' -- limit for testing code - DO NOT USE
+ --and o.project_code = 'BMSE' -- limit for testing code - DO NOT USE
  --and h.site_id in (86,87,88,91,92)  -- limit for testing code - DO NOT USE
   
 group by 
