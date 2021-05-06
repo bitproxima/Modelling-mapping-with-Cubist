@@ -1,5 +1,6 @@
 /*
  Step 1. 
+ Version 1.6 - 06/5/2021 - For ESP calculation, when CEC <=3, default value of 0.1 returned; For Clay Activity calulation, clay % reduced to 30% from 35% and default value of 0.1 return in this case.  
  Version 1.5 - 22/2/2021 - Script changed to deal with missing Horizon No. in Lab Results Table caused by the introduction of the Site'd App - Author Kaitlyn Andrews (Note: You still need to have Horizon No. populated in Samples Table)  
  Version 1.4 - 4/10/2018 - Further bug caused by the moving of the 'Horison table' in SALI data structure has been fixed
  Version 1.3 - 13/9/2018 - The follow new soil attributes have been added - TN, TP, Col_P, WB_OC, CN, ApproxCN, SAR, pHw, pHcl & BS; Rounding results now done automatically when attribute is calulated; Samples table joined to obersvation table, previously joined to horizons table
@@ -186,50 +187,50 @@ from
                         coalesce(m['15B1_CEC'], m['15D1_CEC'], m['15J1'], m['Cat_Na'], m['15C1_CEC'], m['15J2_MQ02'], m['15C2_CEC_MQ01'], m['15C1_CEC_MC91'])
                     end),
     v['Ca_Mg'] = ROUND((case
-                  when v['Cat_CEC'] > 3 then
+                  when v['Cat_CEC'] > 3 then --p129, ASC Third Edition, 3# paragraph
                   v['Cat_Ca'] / v['Cat_Mg']
                   when v['Cat_Ca'] is not null and v['Cat_Mg'] is not null then
                   null
                   end),2),
     m['Ca_Mg'] = (case
-                  when v['Cat_CEC'] > 3 then
+                  when v['Cat_CEC'] > 3 then --p129, ASC Third Edition, 3# paragraph
                   m['Cat_Ca']
                   when v['Cat_Ca'] is not null and v['Cat_Mg'] is not null then
                   'CEC too low' 
                   end),
     v['ESP'] = ROUND((case
-                  when v['Cat_CEC'] > 3 then
+                  when v['Cat_CEC'] > 3 then -- p129, ASC Third Edition, 3# paragraph
                   v['Cat_Na'] / v['Cat_CEC'] * 100
                   when v['Cat_Na'] is not null and v['Cat_CEC'] is not null then
-                  null
+                  0.1 -- default value for very low CEC soils
                   end),1),
     m['ESP'] = (case
-                  when v['Cat_CEC'] > 3 then
+                  when v['Cat_CEC'] > 3 then --p129, ASC Third Edition, 3# paragraph
                     m['Cat_CEC']
                   when v['Cat_Na'] is not null and v['Cat_CEC'] is not null then
                   'CEC too low' 
                   end),
     v['SAR'] = ROUND((case
-                  when v['Cat_CEC'] > 3 then
+                  when v['Cat_CEC'] > 3 then --p129, ASC Third Edition, 3# paragraph
                   v['Cat_Na'] / (SQRT(0.5*(v['Cat_Ca']+v['Cat_Mg'])))
                   when v['Cat_Na'] is not null and v['Cat_CEC'] is not null then
                   null
                   end),1),
     m['SAR'] = (case
-                  when v['Cat_CEC'] > 3 then
+                  when v['Cat_CEC'] > 3 then --p129, ASC Third Edition, 3# paragraph
                     m['Cat_Na']
                   when v['Cat_Na'] is not null and v['Cat_CEC'] is not null then
                   'CEC too low' 
                   end),              
                   
     v['Clay_Act'] = ROUND((case
-                      when v['Cat_CEC'] > 3 and v['Clay'] > 35 then
+                      when v['Cat_CEC'] > 3 and v['Clay'] > 30 then --Clay activity only done on clayey soil samples, i.e. samples with clay > 30 %
                       v['Cat_CEC'] / v['Clay']
                       when v['Cat_CEC'] is not null and v['Clay'] is not null then
-                      null
+                      0.1 -- default value for non clayey soils
                       end),2),
     m['Clay_Act'] = (case
-                      when v['Cat_CEC'] > 3 and v['Clay'] > 35 then
+                      when v['Cat_CEC'] > 3 and v['Clay'] > 30 then --Clay activity only done on clayey soil samples, i.e. samples with clay > 30 %
                         m['Clay']
                       when v['Cat_CEC'] is not null and v['Clay'] is not null then
                         'Not clay'
@@ -278,7 +279,8 @@ where
   and sn.SITE_ID = m.SITE_ID -- samples to lab results table join
   and sn.OBS_NO = m.OBS_NO -- samples to lab results table join
   and sn.SAMPLE_NO = m.SAMPLE_NO -- samples to lab results table join
-  --and c.latitude between -26.98541 and -23.85625 and c.LONGITUDE between 150.28375 and 153.44791 --BMSE modelling area
+  and c.latitude between -26.98541 and -23.85625 and c.LONGITUDE between 150.28375 and 153.44791 --BMSE modelling area
+  --and c.latitude between -28.384207 and -27.562490 and c.longitude between 152.422284 and 153.381002 --LASER bounding box modelling area
   and h.project_code NOT LIKE 'CQC' -- data from Project CQC excluded
   and not (h.project_code LIKE 'EIM' and h.Site_ID = 6051) -- data from EIM 6051 excluded
   and not (h.project_code LIKE 'QCS' and h.Site_ID IN (20, 21, 85, 86)) -- data from QCS 20, 21, 85 and 86 excluded
@@ -288,20 +290,20 @@ where
   and h.DESIGN_MASTER IS NOT NULL --only interested in results from described soil profiles
   
   --set attribute here (you can select one of the following - Cat_Ca, Cat_Mg, Cat_K, Cat_Na, Cat_Acid, Cat_CEC, ESP, Ca_Mg, SAR, Clay, Silt, FS, CS, Clay_Act, BS, pHw, pHcl, Salinity, Chloride, WB_OC, CN, ApproxCN, Col_P, TP, TN 
-  and m.lab_meth_code like 'Clay'
+  and m.lab_meth_code like 'ESP'
   
   --select appropriate conditions depending on attribute
   --Clay/CS/FS
-  and (m.THE_VALUE <= 100) --USE FOR CLAY and CS and FS to elliminate percentage results > 100%
-  and not (h.project_code LIKE 'BAN' and h.Site_ID = 95) -- USE FOR CLAY and CS and FS. Site BAN 95 excluded because lab data does not correlate with field description according to LF.
-  and not (h.project_code LIKE 'BAMAR' and h.site_ID = 952 and sn.sample_no = 5) -- USE FOR CLAY. Site BAMAR 952 sample 5 excluded as gypsum present in soil solution has flocculated clay =1%
+  --and (m.THE_VALUE <= 100) --USE FOR CLAY and CS and FS to elliminate percentage results > 100%
+  --and not (h.project_code LIKE 'BAN' and h.Site_ID = 95) -- USE FOR CLAY and CS and FS. Site BAN 95 excluded because lab data does not correlate with field description according to LF.
+  --and not (h.project_code LIKE 'BAMAR' and h.site_ID = 952 and sn.sample_no = 5) -- USE FOR CLAY. Site BAMAR 952 sample 5 excluded as gypsum present in soil solution has flocculated clay =1%
   
   --ESP
-  --and (m.THE_VALUE <= 100) --USE FOR ESP to elliminate ESP percentage results > 100%
-  --and not (h.project_code LIKE 'ABC' and h.Site_ID = 505 and sn.sample_no = 33) -- USE FOR ESP. Site ABC 505 Sample 33 excluded because cation data incorrect.
-  --and not (h.project_code LIKE 'ABC' and h.Site_ID = 505 and sn.sample_no = 36) -- USE FOR ESP. Site ABC 505 Sample 36 excluded because cation data incorrect.
-  --and not (h.project_code LIKE 'ABC' and h.Site_ID = 500 and sn.sample_no = 31) -- USE FOR ESP. Site ABC 500 Sample 31 excluded because cation data incorrect.
-  --and not (h.project_code LIKE 'WDH' and h.Site_ID = 9098 and sn.sample_no = 13) -- USE FOR ESP. Site WDH 9098 Sample 13 excluded because cation data incorrect.
+  and (m.THE_VALUE <= 100) --USE FOR ESP to elliminate ESP percentage results > 100%
+  and not (h.project_code LIKE 'ABC' and h.Site_ID = 505 and sn.sample_no = 33) -- USE FOR ESP. Site ABC 505 Sample 33 excluded because cation data incorrect.
+  and not (h.project_code LIKE 'ABC' and h.Site_ID = 505 and sn.sample_no = 36) -- USE FOR ESP. Site ABC 505 Sample 36 excluded because cation data incorrect.
+  and not (h.project_code LIKE 'ABC' and h.Site_ID = 500 and sn.sample_no = 31) -- USE FOR ESP. Site ABC 500 Sample 31 excluded because cation data incorrect.
+  and not (h.project_code LIKE 'WDH' and h.Site_ID = 9098 and sn.sample_no = 13) -- USE FOR ESP. Site WDH 9098 Sample 13 excluded because cation data incorrect.
   
   --Salinity
   --and not (h.project_code LIKE 'MON' and h.Site_ID = 6094 and sn.sample_no = 4) -- USE FOR EC. Site MON 6094 Sample 4 excluded because 3A1 and 2Z2_Silt data obviously incorrect.
