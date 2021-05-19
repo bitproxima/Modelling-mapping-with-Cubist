@@ -1,6 +1,6 @@
 ### SummaryStats - Calculates overall statistics for Cubist outputs
 #
-# Version 3.2 - 19/05/2021 - Fix bug that occurs when model runs only have one soil attribute and/or no depths (Lines 193 to 223).
+# Version 3.2 - 19/05/2021 - Fix bug that occurs when model runs only have one soil attribute and/or no depths
 # Version 3.1 - 16/05/2017 - Implemented a 'user adjustable project directory' & Fixed ModelData.csv bug
 # Version 3.0 - 23/02/2017 - Added model run number to filename ModelRun.csv
 #
@@ -24,7 +24,7 @@
 ## Adjust model run number and project directory below (Lines 25 & 26)
 ModelRun = "BMSE1"
 
-ProjectDir = "D://Temp//"
+ProjectDir = "D://"
 ##ProjectDir = "//lands//data//DSITI//LandSciences//NAS//slr_soils//Projects//PMap//Modelling//Stage2//"
 ##ProjectDir = "//athenasmb/scratchDSITI/zundp/"
 
@@ -171,14 +171,15 @@ library(rgdal)
 library(sp)
 library(raster)
 
-### Set temp directory for raster package
+# Set temp directory for raster package
 TempDirectory = paste(ProjectDir, ModelRun, "//TrainingDatatemp", sep="") 
 rasterOptions(tmpdir=TempDirectory)
 
-### Create individual range (uncertainity) rasters
+# Create individual range (uncertainity) rasters
 for (a in 1:length(Attribute)){
   AttributeDirectory=paste(ModelRunDirectory,"//", (Attribute[a]), sep="") 
   setwd(AttributeDirectory)
+  Depths <- list.dirs(path = ".", full.names = FALSE, recursive = FALSE) #depths modelled
   
   for (b in 1:length(Depths)){
     Filename = paste((Attribute[a]), (Depths[b]), "_upper_mosaic.tif", sep = "")    
@@ -189,39 +190,35 @@ for (a in 1:length(Attribute)){
     stduncert <- uncertainity/maxValue(uncertainity)
     writeRaster(stduncert, filename = paste(Attribute[a], Depths[b], "_uncertainity", ".tif", sep=""), format = "GTiff", overwrite = TRUE)
     }
-}
-
-### For attributes with multiple soil depths, create a mean uncertainty raster across depths 
-if(b > 1) {
-  for (a in 1:length(Attribute)){
-    AttributeDirectory=paste(ModelRunDirectory,"//", (Attribute[a]), sep="") 
-    setwd(AttributeDirectory)
-    rangeStack <- stack()
-    
-    for (b in 1:length(Depths)){
-      Filename = paste((Attribute[a]), (Depths[b]), "_uncertainity.tif", sep = "")    
-      tempraster <- raster(Filename)
-      rangeStack <- stack(rangeStack, tempraster)
-    }
-    meanrange <- calc(rangeStack, mean)
-    writeRaster(meanrange, filename = paste(Attribute[a],"average_uncertainity.tif", sep=""), format = "GTiff", overwrite = TRUE)
   }
-}
-
-### Create an overall range (uncertainity) raster for model runs with more than one soil attribute
-if(a > 1) {
-  meanStack <- stack()
-  for (a in 1:length(Attribute)){
-    AttributeDirectory=paste(ModelRunDirectory,"//", (Attribute[a]), sep="") 
-    setwd(AttributeDirectory)
-    Filename = paste((Attribute[a]),"average_uncertainity.tif", sep = "")
+  
+# Create a "mean of uncertainty raster" across depths 
+for (a in 1:length(Attribute)){
+  AttributeDirectory=paste(ModelRunDirectory,"//", (Attribute[a]), sep="") 
+  setwd(AttributeDirectory)
+  Depths <- list.dirs(path = ".", full.names = FALSE, recursive = FALSE) #depths modelled
+  rangeStack <- stack()
+  for (b in 1:length(Depths)){
+    Filename = paste((Attribute[a]), (Depths[b]), "_uncertainity.tif", sep = "")    
     tempraster <- raster(Filename)
-    meanStack <- stack(meanStack, tempraster)
+    rangeStack <- stack(rangeStack, tempraster)
     }
-  meanrange <- calc(meanStack, mean)
-  setwd(ModelRunDirectoryUpper)
-  writeRaster(meanrange, filename = paste(ModelRun, "_average_uncertainity.tif", sep=""), format = "GTiff", overwrite = TRUE)
-}
+  meanrange <- calc(rangeStack, mean)
+  writeRaster(meanrange, filename = paste(Attribute[a],"average_uncertainity.tif", sep=""), format = "GTiff", overwrite = TRUE)
+  }
+
+# Create a "mean of uncertainty raster" across soil attributes
+meanStack <- stack()
+for (a in 1:length(Attribute)){
+  AttributeDirectory=paste(ModelRunDirectory,"//", (Attribute[a]), sep="") 
+  setwd(AttributeDirectory)
+  Filename = paste((Attribute[a]),"average_uncertainity.tif", sep = "")
+  tempraster <- raster(Filename)
+  meanStack <- stack(meanStack, tempraster)
+  }
+meanrange <- calc(meanStack, mean)
+setwd(ModelRunDirectoryUpper)
+writeRaster(meanrange, filename = paste(ModelRun, "_average_uncertainity.tif", sep=""), format = "GTiff", overwrite = TRUE)
 
 #Remove temp raster files 
 rasfiles<- list.files(TempDirectory, pattern='$')
