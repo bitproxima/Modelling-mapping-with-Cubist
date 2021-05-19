@@ -1,16 +1,18 @@
 ### SummaryStats - Calculates overall statistics for Cubist outputs
 #
-#     Version 3.1 - 16/05/2017 - Implemented a 'user adjustable project directory' & Fixed ModelData.csv bug
-#     Version 3 - 23/02/2017 - Added model run number to filename ModelRun.csv
+# Version 3.2 - 19/05/2021 - Fix bug that occurs when model runs only have one soil attribute and/or no depths (Lines 193 to 223).
+# Version 3.1 - 16/05/2017 - Implemented a 'user adjustable project directory' & Fixed ModelData.csv bug
+# Version 3.0 - 23/02/2017 - Added model run number to filename ModelRun.csv
 #
 ### Script description 
 ####### Part 1 - combines the median stats from individual tables,
 ####### Part 2 - averages the variable (covariate) importances
 ####### Part 3 - creates a raster for each predicted attribute that represents the difference between the values for the 95th percentile and 5th percentile (range),
 ####### Part 3 - creates rasters for the average range for each attribute aswell the overall range
-####### Script was initally designed to expect multiple soil attributes and six soil depths
+####### Script was initially designed to expect multiple soil attributes and six soil depths
 ####### It has since been updated to handle case where there is only one soil attribute run aswell as
 ####### cases where there is less than six soil depths
+####### Make sure only model runs that have completed successfully are in the /TrainingDataOutputs/ directory
 ###
 ### Part 1 & 2 can be run after Module 1
 ### Part 3 can be run after Module 2
@@ -20,17 +22,17 @@
 ## If your covariates are not GTiff .tif then lines 37 and 38 need to be remarked out and lines 39 and 40 need to be made active
 
 ## Adjust model run number and project directory below (Lines 25 & 26)
-ModelRun = "P4"
+ModelRun = "BMSE1"
 
-##ProjectDir = "C://Temp//"
-ProjectDir = "//lands//data//DSITI//LandSciences//NAS//slr_soils//Projects//PMap//Modelling//Stage1//"
-
+ProjectDir = "D://Temp//"
+##ProjectDir = "//lands//data//DSITI//LandSciences//NAS//slr_soils//Projects//PMap//Modelling//Stage2//"
+##ProjectDir = "//athenasmb/scratchDSITI/zundp/"
 
 ## Script processing starts here
 library(plyr)
 library(matrixStats) #for std deviation function rowSds()
 
-# The following code is for a prelimiary step in generating an excel summary file of 'Variable Importance'(Part 2)
+# The following code is for a preliminary step in generating an excel summary file of 'Variable Importance'(Part 2)
 # Creates a blank dataframe with a list of covariates used in the model run to which data will be added later.
 CovariateDirectory = paste(ProjectDir, ModelRun, "//Covariates", sep="") 
 setwd(CovariateDirectory)
@@ -130,7 +132,7 @@ for (a in 1:length(Attribute)){
     Filename = paste((Attribute[a]), (Depths[b]), "_Kfold_10_CubistVariableImp.csv", sep = "")    
     Kfold10 <- read.table(Filename, header=TRUE, sep=",")
     
-    # aggregate each kfold variable importance into one table, calulate average, reoder columns and export csv
+    # aggregate each kfold variable importance into one table, calculate average, reorder columns and export csv
     m1 <- merge(Kfold1, Kfold2, by = "row.names")
     m2 <- merge(Kfold3, Kfold4, by = "row.names")
     m3 <- merge(Kfold5, Kfold6, by = "row.names")
@@ -138,8 +140,8 @@ for (a in 1:length(Attribute)){
     m5 <- merge(Kfold9, Kfold10, by = "row.names")
     vi <- join_all(list(m1,m2, m3, m4, m5), by = "Row.names")  
     vi$Average <- rowMeans(vi[,2:11]) #Calculate mean Importance
-    vi$SD <- rowSds(as.matrix(vi[,2:11])) #Calculate standard deviation accros all 10 Kfolds
-    vi$Rank <- (vi[,12]/vi[,13]) #Calulate Rank based on mean/sd
+    vi$SD <- rowSds(as.matrix(vi[,2:11])) #Calculate standard deviation across all 10 Kfolds
+    vi$Rank <- (vi[,12]/vi[,13]) #Calculate Rank based on mean/sd
     vi <- vi[order(-vi$Rank),] #Order according to rank
     #vi <- na.omit(vi)
     names(vi) <- c("Covariate", "Kfold1", "Kfold2", "Kfold3", "Kfold4", "Kfold5", "Kfold6", "Kfold7", "Kfold8", "Kfold9", "Kfold10", "Average", "SD", "Rank") 
@@ -164,7 +166,7 @@ for (a in 1:length(Attribute)){
 ### END OF PART 2
 
 ### PART 3 - Create range rasters - ####
-### BEWARE Part 3 takes one hour when using the new laptops
+
 library(rgdal)
 library(sp)
 library(raster)
@@ -189,33 +191,37 @@ for (a in 1:length(Attribute)){
     }
 }
 
-### Create single range (uncertainity) raster for each attribute using simple averaging 
-for (a in 1:length(Attribute)){
-  AttributeDirectory=paste(ModelRunDirectory,"//", (Attribute[a]), sep="") 
-  setwd(AttributeDirectory)
-  rangeStack <- stack()
-  
-  for (b in 1:length(Depths)){
-    Filename = paste((Attribute[a]), (Depths[b]), "_uncertainity.tif", sep = "")    
-    tempraster <- raster(Filename)
-    rangeStack <- stack(rangeStack, tempraster)
+### For attributes with multiple soil depths, create a mean uncertainty raster across depths 
+if(b > 1) {
+  for (a in 1:length(Attribute)){
+    AttributeDirectory=paste(ModelRunDirectory,"//", (Attribute[a]), sep="") 
+    setwd(AttributeDirectory)
+    rangeStack <- stack()
+    
+    for (b in 1:length(Depths)){
+      Filename = paste((Attribute[a]), (Depths[b]), "_uncertainity.tif", sep = "")    
+      tempraster <- raster(Filename)
+      rangeStack <- stack(rangeStack, tempraster)
+    }
+    meanrange <- calc(rangeStack, mean)
+    writeRaster(meanrange, filename = paste(Attribute[a],"average_uncertainity.tif", sep=""), format = "GTiff", overwrite = TRUE)
   }
-  meanrange <- calc(rangeStack, mean)
-  writeRaster(meanrange, filename = paste(Attribute[a],"average_uncertainity.tif", sep=""), format = "GTiff", overwrite = TRUE)
 }
 
-### Create an overall range (uncertainity) raster for the model run
-meanStack <- stack()
-for (a in 1:length(Attribute)){
-  AttributeDirectory=paste(ModelRunDirectory,"//", (Attribute[a]), sep="") 
-  setwd(AttributeDirectory)
-  Filename = paste((Attribute[a]),"average_uncertainity.tif", sep = "")
-  tempraster <- raster(Filename)
-  meanStack <- stack(meanStack, tempraster)
-  }
-meanrange <- calc(meanStack, mean)
-setwd(ModelRunDirectoryUpper)
-writeRaster(meanrange, filename = paste(ModelRun, "_average_uncertainity.tif", sep=""), format = "GTiff", overwrite = TRUE)
+### Create an overall range (uncertainity) raster for model runs with more than one soil attribute
+if(a > 1) {
+  meanStack <- stack()
+  for (a in 1:length(Attribute)){
+    AttributeDirectory=paste(ModelRunDirectory,"//", (Attribute[a]), sep="") 
+    setwd(AttributeDirectory)
+    Filename = paste((Attribute[a]),"average_uncertainity.tif", sep = "")
+    tempraster <- raster(Filename)
+    meanStack <- stack(meanStack, tempraster)
+    }
+  meanrange <- calc(meanStack, mean)
+  setwd(ModelRunDirectoryUpper)
+  writeRaster(meanrange, filename = paste(ModelRun, "_average_uncertainity.tif", sep=""), format = "GTiff", overwrite = TRUE)
+}
 
 #Remove temp raster files 
 rasfiles<- list.files(TempDirectory, pattern='$')
